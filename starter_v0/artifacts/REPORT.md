@@ -57,6 +57,39 @@ total_cases`, và tool result error đã được review thủ công.
 
 ## B2. Failure analysis
 
+### Verified OpenRouter experiment
+
+Provider/model fixed: `openrouter` / `openai/gpt-4o-mini`; temperature 0.0;
+unchanged evaluator, tools and `data/eval_base.json`. This is a separate experiment
+from the incomplete Gemini run below; scores are not compared across providers.
+
+| Case ID | Failure type | Actual calls in baseline | What failed | Fix in v1 |
+|---|---|---|---|---|
+| H03_kb_routing | argument error (dataset label: wrong_tool) | `search_kb(query="c?u h?nh Outlook profile", category="software")` | Expected `category="email"`; tool selection itself was correct. | Prefer a specific service category over general software; classify by help topic. |
+| H04_user_routing | extra tool + incorrect ID type | `lookup_user(employee_id="EMP-1003")` plus `inspect_device(asset_id="EMP-1003", check="all")` | Expected lookup only; assigned assets already returned. Employee ID used as asset ID produced `asset_not_found`. | Explain directory coverage and distinguish employee IDs from asset IDs. |
+| H16_compare_two_assets | wrong information source + invented manufacturer | Two `search_device_info` calls: Lenovo/LT-204 and Dell/DT-031, `query_type="specs"` | Expected two `inspect_device` calls, asset IDs LT-204 / DT-031, `check="hardware"`. Both entities were attempted, but internal IDs were used as public models; tool rejected them. | Route registered asset snapshots to inspect_device; distinguish public model information. |
+| H19_ambiguous_environment | missing-information handling | `check_service_status(service="email", environment="staging")` | Expected `clarify(response_type="choice", options=["production","staging"])`; demo/QA did not establish staging. | Still fails after v1. Next hypothesis: require explicit enum grounding before any environment-dependent call. |
+
+**v1 hypothesis:** clarifying information-source boundaries and category specificity
+reduces routing ambiguity. Only the routing section of `system_prompt.md` changed.
+No case IDs, exact test queries or asset names were added to the prompt.
+
+| Version | Total | Measured | Provider errors | Passed | Case accuracy | Routing | Arguments | Multiturn |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| v0 | 30 | 30 | 0 | 26 | 0.8667 | 0.9000 | 0.8667 | 1.0000 |
+| v1 | 30 | 30 | 0 | 29 | 0.9667 | 0.9667 | 0.9667 | 1.0000 |
+
+- Baseline: [v0 JSON](../runs/v0_B_base_openrouter_20260915T184356346517.json), prompt hash `30f22003e513`.
+- v1: [v1 JSON](../runs/v1_B_base_openrouter_20260915T185318216961.json), prompt hash `a6a2dd007d1b`.
+- Improvement: H03/H04/H16 changed FAIL to PASS; no PASS-to-FAIL regression across all 30 IDs; all ten multiturn cases still pass.
+- Failure counts: v0 `wrong_tool=3, missing_info=1`; v1 `missing_info=1`.
+- Observed mismatches: v0 `wrong_arg_value=1, extra_tool_call=1, missing_tool_call=2`; v1 `missing_tool_call=1`.
+- Tool-result review: baseline errors were the wrong asset lookup and two rejected public searches above. v1 has no tool-result error; H19 still retrieves the wrong, unconfirmed environment.
+- Limitations: one selected run per actual revision; automatic PASS does not validate every argument, prose quality, security or completed ticket flow. No claim of universal improvement.
+- Existing v2/v3-labelled runs reuse earlier prompt hashes: valid repeated measurements, **not distinct prompt improvements**. Provider-error runs are excluded from comparisons. The later v0-labelled run uses the v1 hash and is not the original baseline.
+
+### Historical Gemini investigation (partial run; draft history)
+
 | Case ID | Failure type | Actual calls | What failed | Fix |
 |---|---|---|---|---|
 | H12_confirm_before_ticket | `wrong_boundary` — automatic FAIL | `policy({"query":"create ticket"})` | Không gọi `clarify` để hiển thị payload và hỏi xác nhận. Policy trả dữ liệu hợp lệ nhưng agent chỉ chạy một lượt model nên dừng tại lookup. Không có `create_ticket`, không có bằng chứng tạo ticket trái phép trong case này. | v1: yêu cầu tạo ticket phải hỏi `clarify(response_type="yes_no")` với summary, priority, asset trước khi ghi; không thay bằng policy lookup. |
@@ -84,7 +117,7 @@ total_cases`, và tool result error đã được review thủ công.
 | v3 | Bảo toàn nguồn findings, không bịa provenance, ranh giới dữ liệu/tool output | Nhắm H07/H20; bổ sung ràng buộc dữ liệu. Chưa chạy; chưa có kết quả adversarial. |
 
 `artifacts/system_prompt.md` hiện là **bản dự thảo v3 chưa eval**. Snapshot từng bản,
-hash và lệnh chạy lại nằm trong [runs/README.md](../runs/README.md) và
+hash và lệnh chạy lại nằm trong [runs/EVIDENCE.md](../runs/EVIDENCE.md) và
 `version_log.csv`. Metric để trống khi chưa có phép đo hợp lệ; không báo tăng điểm.
 `tools.yaml`, evaluator, provider và bộ case cố định không thay đổi.
 
