@@ -5,7 +5,7 @@
 ## Tên repo
 
 ```text
-K4-L3-DAY04-HoVaTen-MSSV-PromptEngineeringToolCalling
+K4-L3B-Day04-AIGANG
 ```
 
 Dùng họ tên không dấu và MSSV của người đại diện; không có khoảng trắng; dùng `DAY04` và `L3`. Liệt kê mọi thành viên trong [TEAM.md](TEAM.md).
@@ -13,8 +13,9 @@ Dùng họ tên không dấu và MSSV của người đại diện; không có k
 Khi repo đề bài public và cho phép Fork, nhóm trưởng Fork rồi đổi tên. Nếu chưa Fork được, clone repo đề bài, đổi `origin` sang repo nhóm rỗng và push `main`:
 
 ```powershell
-git clone https://github.com/VinUni-AI20k/K4-L3B-Day04-Prompt-Engineering-Tool-Calling-Labs.git <TEN_REPO_NHOM>
-cd <TEN_REPO_NHOM>
+git clone https://github.com/VinUni-AI20k/K4-L3B-Day04-AIGANG
+git <K4-L3B-Day04-AIGANG>
+cd <K4-L3B-Day04-AIGANG>
 git remote rename origin upstream
 git remote add origin <URL_REPO_NHOM>
 git push -u origin main
