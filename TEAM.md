@@ -17,7 +17,7 @@
 | Dương Văn Thành | 2A202602368 | JJayzdev      | Baseline + System Prompt            | docs: analyze baseline failures and improve system prompt               |
 | Nguyễn Viết Đức | 2A202602732 | VietDuc005    | Tools Declaration + Team Eval       | Merge branch 'nguyen-viet-duc'               |
 | Mai Văn Trường  | 2A202602983 | MaiTruong1312 | UI Demo                             | Triển khai UI               |
-| Hồ Ngọc Mai     | 2A202602509 | ngmai2005     | Adversarial Safety + Final Evidence |                |
+| Hồ Ngọc Mai     | 2A202602509 | ngmai2005     | Adversarial Safety + Final Evidence | test: Ho Ngoc Mai               |
 
 ## Nhận xét chung
 
