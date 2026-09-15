@@ -7,7 +7,7 @@
 - Tên nhóm: AIGANG
 - Người đại diện / MSSV: Hồ Ngọc Mai-2A202620509
 - Tên repo: `K4-L3B-Day04-AIGANG`
-- URL repo, nhánh nộp, commit chốt:
+- URL repo, nhánh nộp, commit chốt: https://github.com/JJayzdev/K4-L3B-Day04-AIGANG-Prompt-Engineering-Tool-Calling-Labs, `main`, cập nhật sau commit evidence cuối.
 - Deadline áp dụng và link thông báo đổi hạn nếu có:
 
 ## Thành viên
@@ -32,8 +32,9 @@
   tăng từ 26/30 lên 29/30; các lỗi còn lại được ghi rõ trong B2.
 - Giới hạn còn lại: H04 vẫn có thể phát sinh `inspect_device` thừa sau
   `lookup_user`; team eval G04 từng thiếu `response_type`. Adversarial Gemini
-  chưa có runtime score vì môi trường chạy thiếu `GEMINI_API_KEY`; artifact chỉ
-  chứng minh 12 case bị provider error, không chứng minh 12 case đã PASS.
+  có runtime evidence nhưng chưa đủ coverage do quota: run tốt nhất đo được
+  7/12 case và cả 7 case đều PASS; lần rerun mới nhất đo được 6/12 và cả 6
+  case đều PASS. Không dùng các kết quả này để claim full 12-case pass.
 - Cách phân công và tích hợp: Thành phụ trách prompt và baseline/version eval;
   Đức phụ trách declaration và team eval; Trường xây UI demo; Mai phụ trách
   adversarial review và final evidence. Mỗi phần được kiểm tra qua run JSON,
@@ -113,7 +114,7 @@
 Phần nhận xét chung đã được hoàn thành ở trên và có dẫn tới report, run JSON,
 version log cùng các commit kỹ thuật.
 
-> Link repository chung: Chưa ghi nhận trong repository.
+> Link repository chung: https://github.com/JJayzdev/K4-L3B-Day04-AIGANG-Prompt-Engineering-Tool-Calling-Labs
 
 ### C2. INDIVIDUAL của từng thành viên
 
@@ -138,4 +139,4 @@ Các mục INDIVIDUAL của bốn thành viên đã được ghi trực tiếp t
 
 **URL repository chung dùng để nộp:**
 
-> Chưa ghi nhận trong repository; cần nhóm điền trước khi nộp.
+> https://github.com/JJayzdev/K4-L3B-Day04-AIGANG-Prompt-Engineering-Tool-Calling-Labs
