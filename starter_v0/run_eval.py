@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -270,6 +271,9 @@ def main() -> None:
     parser.add_argument("--tools", type=Path, default=ARTIFACTS_DIR / "tools.yaml")
     parser.add_argument("--eval-cases", type=Path, default=DATA_DIR / "eval_base.json")
     parser.add_argument("--runs-dir", type=Path, default=ROOT / "runs")
+    parser.add_argument("--case-delay-seconds", type=float, default=0.0, help="Optional pause between cases to avoid provider rate limits.")
+    parser.add_argument("--retry-provider-errors", type=int, default=0, help="Retry a case this many times when the provider raises an error.")
+    parser.add_argument("--retry-delay-seconds", type=float, default=30.0, help="Pause before retrying a provider error.")
     args = parser.parse_args()
 
     system_prompt = args.system_prompt.read_text(encoding="utf-8")
@@ -286,29 +290,40 @@ def main() -> None:
     openai_tools = to_openai_tools(tool_declarations)
 
     results: list[dict[str, Any]] = []
-    for case in cases:
+    for case_index, case in enumerate(cases):
         print(f"Running {case['id']}...", flush=True)
         agent = HelpdeskAgent(provider, system_prompt=system_prompt, tools=openai_tools, model=args.model)
-        try:
-            tool_choice = None if case["expect"].get("no_tool") else "required"
-            run = agent.run(case_messages(case), tool_choice=tool_choice)
-            calls = [{"name": call.name, "args": call.args} for call in run.tool_calls]
-            result = evaluate_phase_b(case, calls, run.text)
-            tool_results = run.tool_results
-        except Exception as exc:
-            calls = []
-            tool_results = []
-            result = {
-                "passed": False,
-                "failure_type": "provider_error",
-                "case_failure_type": case.get("failure_type"),
-                "observed_mismatch": "provider_error",
-                "failures": [f"{type(exc).__name__}: {str(exc)}"],
-                "actual_tool_calls": [],
-                "actual_text": None,
-                "routing_correct": False,
-                "args_correct": False,
-            }
+        attempts = max(1, int(args.retry_provider_errors or 0) + 1)
+        for attempt in range(1, attempts + 1):
+            try:
+                tool_choice = None if case["expect"].get("no_tool") else "required"
+                run = agent.run(case_messages(case), tool_choice=tool_choice)
+                calls = [{"name": call.name, "args": call.args} for call in run.tool_calls]
+                result = evaluate_phase_b(case, calls, run.text)
+                tool_results = run.tool_results
+                break
+            except Exception as exc:
+                if attempt < attempts:
+                    print(
+                        f"Provider error on {case['id']} attempt {attempt}/{attempts}; "
+                        f"retrying in {args.retry_delay_seconds:g}s...",
+                        flush=True,
+                    )
+                    time.sleep(max(0.0, args.retry_delay_seconds))
+                    continue
+                calls = []
+                tool_results = []
+                result = {
+                    "passed": False,
+                    "failure_type": "provider_error",
+                    "case_failure_type": case.get("failure_type"),
+                    "observed_mismatch": "provider_error",
+                    "failures": [f"{type(exc).__name__}: {str(exc)}"],
+                    "actual_tool_calls": [],
+                    "actual_text": None,
+                    "routing_correct": False,
+                    "args_correct": False,
+                }
         results.append({
             "id": case["id"],
             "phase": case["phase"],
@@ -321,6 +336,8 @@ def main() -> None:
             "result": result,
             "tool_results": tool_results,
         })
+        if args.case_delay_seconds > 0 and case_index < len(cases) - 1:
+            time.sleep(args.case_delay_seconds)
 
     summary = summarize(results)
     args.runs_dir.mkdir(parents=True, exist_ok=True)

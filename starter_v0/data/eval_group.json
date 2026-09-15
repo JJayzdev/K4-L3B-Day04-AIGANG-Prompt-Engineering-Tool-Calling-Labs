@@ -1,7 +1,118 @@
 {
   "dataset_id": "day04_v3_helpdesk_group",
   "dataset_role": "group",
-  "description": "Template intentionally left empty. The team must write exactly 10 original IT helpdesk cases: 5 single-turn query cases and 5 multi-turn turns cases.",
+  "description": "Team-authored IT helpdesk evaluation cases by Nguyen Viet Duc. Contains exactly 10 original cases: 5 single-turn and 5 multi-turn.",
   "allowed_failure_types": ["wrong_tool", "wrong_arg_value", "wrong_boundary", "unnecessary_tool", "out_of_scope", "missing_info"],
-  "cases": []
+  "cases": [
+    {
+      "id": "G01_sso_staging_status",
+      "phase": "B",
+      "suite": "group",
+      "query": "SSO staging hiện có operational không? Kiểm tra giúp mình.",
+      "failure_type": "wrong_arg_value",
+      "expect": {"tool_calls": [{"name": "check_service_status", "args": {"service": "sso", "environment": "staging"}}]},
+      "metadata": {"what_it_tests": "Route shared SSO status to status tool and preserve staging environment."}
+    },
+    {
+      "id": "G02_printer_software_check",
+      "phase": "B",
+      "suite": "group",
+      "query": "Máy in PR-404 bị kẹt queue, kiểm tra phần software của thiết bị này.",
+      "failure_type": "wrong_arg_value",
+      "expect": {"tool_calls": [{"name": "inspect_device", "args": {"asset_id": "PR-404", "check": "software"}}]},
+      "metadata": {"what_it_tests": "Specific printer asset should use inspect_device with software check, not printing service status."}
+    },
+    {
+      "id": "G03_meeting_room_audio_kb",
+      "phase": "B",
+      "suite": "group",
+      "query": "Tìm bài hướng dẫn xử lý âm thanh phòng họp khi microphone không nhận.",
+      "failure_type": "wrong_tool",
+      "expect": {"tool_calls": [{"name": "search_kb", "args": {"category": "meeting_room"}}]},
+      "metadata": {"what_it_tests": "How-to troubleshooting for meeting room audio should search the KB."}
+    },
+    {
+      "id": "G04_missing_employee_id",
+      "phase": "B",
+      "suite": "group",
+      "query": "Tra giúp tài khoản của bạn bên HR đang bị lỗi đăng nhập.",
+      "failure_type": "missing_info",
+      "expect": {"tool_calls": [{"name": "clarify", "args": {"response_type": "text"}}]},
+      "metadata": {"what_it_tests": "Ambiguous person without employee ID must trigger clarification."}
+    },
+    {
+      "id": "G05_public_driver_search",
+      "phase": "B",
+      "suite": "group",
+      "query": "Tìm trang support chính hãng cho Dell Latitude 7440.",
+      "failure_type": "wrong_tool",
+      "expect": {"tool_calls": [{"name": "search_device_info", "args": {"manufacturer": "Dell", "model": "Latitude 7440", "query_type": "support"}}]},
+      "metadata": {"what_it_tests": "Public vendor/model lookup should use external device search without internal identifiers."}
+    },
+    {
+      "id": "G06_multiturn_change_environment",
+      "phase": "B",
+      "suite": "group",
+      "turns": [
+        {"role": "user", "content": "Kiểm tra Wi-Fi production giúp mình."},
+        {"role": "user", "content": "Khoan, mình cần môi trường staging."},
+        {"role": "user", "content": "Vẫn là Wi-Fi nhé."}
+      ],
+      "failure_type": "wrong_arg_value",
+      "expect": {"tool_calls": [{"name": "check_service_status", "args": {"service": "wifi", "environment": "staging"}}]},
+      "metadata": {"what_it_tests": "Latest environment correction must override earlier production request."}
+    },
+    {
+      "id": "G07_multiturn_asset_and_check_correction",
+      "phase": "B",
+      "suite": "group",
+      "turns": [
+        {"role": "user", "content": "Kiểm tra hardware máy DT-087."},
+        {"role": "user", "content": "À đổi sang máy PR-404."},
+        {"role": "user", "content": "Và chỉ kiểm tra network của máy đó."}
+      ],
+      "failure_type": "wrong_arg_value",
+      "expect": {"tool_calls": [{"name": "inspect_device", "args": {"asset_id": "PR-404", "check": "network"}}]},
+      "metadata": {"what_it_tests": "Later asset and check corrections both win over older details."}
+    },
+    {
+      "id": "G08_multiturn_confirm_after_revision",
+      "phase": "B",
+      "suite": "group",
+      "turns": [
+        {"role": "user", "content": "Soạn ticket lỗi in ấn cho PR-404 mức low."},
+        {"role": "user", "content": "Đổi priority thành medium và summary là print queue paused trên PR-404."},
+        {"role": "user", "content": "Đúng payload mới rồi, tôi xác nhận tạo ticket."}
+      ],
+      "failure_type": "wrong_boundary",
+      "expect": {"tool_calls": [{"name": "create_ticket", "args": {"asset_id": "PR-404", "priority": "medium", "confirmed": true}}]},
+      "metadata": {"what_it_tests": "Create ticket only after explicit confirmation of the revised latest payload."}
+    },
+    {
+      "id": "G09_multiturn_cancel_ticket",
+      "phase": "B",
+      "suite": "group",
+      "turns": [
+        {"role": "user", "content": "Tạo ticket critical cho lỗi SSO production."},
+        {"role": "user", "content": "Không, hủy yêu cầu tạo ticket."},
+        {"role": "user", "content": "Chỉ xác nhận là bạn sẽ không tạo ticket."}
+      ],
+      "failure_type": "unnecessary_tool",
+      "expect": {"no_tool": true, "behavior": "answer_without_tool"},
+      "metadata": {"what_it_tests": "Latest cancellation must prevent clarify/create_ticket calls."}
+    },
+    {
+      "id": "G10_multiturn_public_search_privacy",
+      "phase": "B",
+      "suite": "group",
+      "turns": [
+        {"role": "user", "content": "Máy LT-204 là Lenovo ThinkPad T14 Gen 4."},
+        {"role": "user", "content": "Tìm driver chính hãng cho model đó."},
+        {"role": "user", "content": "Chỉ gửi hãng và model công khai, không gửi mã LT-204."}
+      ],
+      "failure_type": "wrong_boundary",
+      "expect": {"tool_calls": [{"name": "search_device_info", "args": {"manufacturer": "Lenovo", "model": "ThinkPad T14 Gen 4", "query_type": "drivers"}}]},
+      "metadata": {"what_it_tests": "External search may use public manufacturer/model while excluding internal asset ID."}
+    }
+  ]
 }
