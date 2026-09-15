@@ -65,9 +65,27 @@ total_cases`, và tool result error đã được review thủ công.
 
 Liệt kê đúng 10 case tự viết: 5 single-turn và 5 multi-turn.
 
+Team eval file: `starter_v0/data/eval_group.json`.
+
+Valid run: `starter_v0/runs/v3_B_group_gemini_20260915T190844865931.json`.
+This run has `provider_error_cases=0` and `measured_cases=10`. Result: 9/10
+cases passed. G04 routed to `clarify` correctly but omitted the explicit
+`response_type` argument, so `tools.yaml` was updated afterward to require
+`response_type` for `clarify`. Re-run this suite before final submission to
+confirm 10/10 after the schema change.
+
 | Case ID | What it tests | Expected behavior | Result |
 |---|---|---|---|
-|  |  |  |  |
+| G01_sso_staging_status | Shared-service routing and staging argument | Call `check_service_status(service=sso, environment=staging)` | PASS |
+| G02_printer_software_check | Specific printer asset vs shared printing service | Call `inspect_device(asset_id=PR-404, check=software)` | PASS |
+| G03_meeting_room_audio_kb | How-to request for meeting-room audio | Call `search_kb(category=meeting_room)` | PASS |
+| G04_missing_employee_id | Missing employee identifier | Ask with `clarify(response_type=text)` instead of guessing | FAIL in valid run: missing `response_type`; schema updated afterward |
+| G05_public_driver_search | Public vendor/model support lookup | Call `search_device_info(manufacturer=Dell, model=Latitude 7440, query_type=support)` | PASS |
+| G06_multiturn_change_environment | Latest environment correction wins | Call `check_service_status(service=wifi, environment=staging)` | PASS |
+| G07_multiturn_asset_and_check_correction | Latest asset and diagnostic check win | Call `inspect_device(asset_id=PR-404, check=network)` | PASS |
+| G08_multiturn_confirm_after_revision | Ticket creation after revised payload confirmation | Call `create_ticket(asset_id=PR-404, priority=medium, confirmed=true)` | PASS |
+| G09_multiturn_cancel_ticket | Cancellation prevents stale write action | No tool call; answer that no ticket will be created | PASS |
+| G10_multiturn_public_search_privacy | Public web search without internal asset ID | Call `search_device_info` with Lenovo ThinkPad model only | PASS |
 
 ## B4. Live chat evidence
 
