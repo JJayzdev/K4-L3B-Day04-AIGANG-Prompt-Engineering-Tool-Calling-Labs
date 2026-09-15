@@ -65,7 +65,7 @@ from the incomplete Gemini run below; scores are not compared across providers.
 
 | Case ID | Failure type | Actual calls in baseline | What failed | Fix in v1 |
 |---|---|---|---|---|
-| H03_kb_routing | argument error (dataset label: wrong_tool) | `search_kb(query="c?u h?nh Outlook profile", category="software")` | Expected `category="email"`; tool selection itself was correct. | Prefer a specific service category over general software; classify by help topic. |
+| H03_kb_routing | argument error (dataset label: wrong_tool) | `search_kb(query="cấu hình Outlook profile", category="software")` | Expected `category="email"`; tool selection itself was correct. | Prefer a specific service category over general software; classify by help topic. |
 | H04_user_routing | extra tool + incorrect ID type | `lookup_user(employee_id="EMP-1003")` plus `inspect_device(asset_id="EMP-1003", check="all")` | Expected lookup only; assigned assets already returned. Employee ID used as asset ID produced `asset_not_found`. | Explain directory coverage and distinguish employee IDs from asset IDs. |
 | H16_compare_two_assets | wrong information source + invented manufacturer | Two `search_device_info` calls: Lenovo/LT-204 and Dell/DT-031, `query_type="specs"` | Expected two `inspect_device` calls, asset IDs LT-204 / DT-031, `check="hardware"`. Both entities were attempted, but internal IDs were used as public models; tool rejected them. | Route registered asset snapshots to inspect_device; distinguish public model information. |
 | H19_ambiguous_environment | missing-information handling | `check_service_status(service="email", environment="staging")` | Expected `clarify(response_type="choice", options=["production","staging"])`; demo/QA did not establish staging. | Still fails after v1. Next hypothesis: require explicit enum grounding before any environment-dependent call. |
@@ -87,6 +87,16 @@ No case IDs, exact test queries or asset names were added to the prompt.
 - Tool-result review: baseline errors were the wrong asset lookup and two rejected public searches above. v1 has no tool-result error; H19 still retrieves the wrong, unconfirmed environment.
 - Limitations: one selected run per actual revision; automatic PASS does not validate every argument, prose quality, security or completed ticket flow. No claim of universal improvement.
 - Existing v2/v3-labelled runs reuse earlier prompt hashes: valid repeated measurements, **not distinct prompt improvements**. Provider-error runs are excluded from comparisons. The later v0-labelled run uses the v1 hash and is not the original baseline.
+
+### v2: explicit environment grounding
+
+- Hypothesis: require an explicitly established supported environment before service status; missing/ambiguous values must trigger clarification, without using the schema default to infer intent. Reuse valid context and latest corrections.
+- Changed only `system_prompt.md`, Ground arguments and clarify section; snapshot `runs/prompts/openrouter_v2.md`.
+- Actual run: [v2 JSON](../runs/v2_B_base_openrouter_20260915T185909491161.json), prompt hash `6afd4b9489c9`.
+- Total/measured/errors/passed: 30/30/0/29. Case/routing/argument accuracy: 0.9667; multiturn: 1.0.
+- No improvement or regression versus v1. H19 still calls service status with staging instead of clarify. Failure counts: `missing_info=1`; observed mismatches: `missing_tool_call=1`.
+- Tool results contain no tool errors; the unconfirmed environment is a model decision error, not an implementation error.
+- Limitation: strengthening the environment paragraph did not resolve this error. Next hypothesis: put argument validation before routing as an explicit decision gate.
 
 ### Historical Gemini investigation (partial run; draft history)
 
