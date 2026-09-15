@@ -50,10 +50,10 @@ total_cases`, và tool result error đã được review thủ công.
 
 | Version | Prompt/tool change | Hypothesis | Metric | Before | After | Run file |
 |---|---|---|---|---:|---:|---|
-| v0 | baseline |  |  |  |  |  |
-| v1 |  |  |  |  |  |  |
-| v2 |  |  |  |  |  |  |
-| v3 |  |  |  |  |  |  |
+| v0 | OpenRouter baseline | Measure pre-routing-change behavior | case_accuracy | - | 0.8667 | [run](../runs/v0_B_base_openrouter_20260915T184356346517.json) |
+| v1 | Clarify routing/category boundaries | Match information source to intent | case_accuracy | 0.8667 | 0.9667 | [run](../runs/v1_B_base_openrouter_20260915T185318216961.json) |
+| v2 | Explicit environment grounding | Prevent unsupported environment inference | case_accuracy | 0.9667 | 0.9667 | [run](../runs/v2_B_base_openrouter_20260915T185909491161.json) |
+| v3 | Argument gate before routing | Validate arguments before operational calls | case_accuracy | 0.9667 | 0.9667 | [run](../runs/v3_B_base_openrouter_20260915T190104637985.json) |
 
 ## B2. Failure analysis
 
@@ -98,6 +98,32 @@ No case IDs, exact test queries or asset names were added to the prompt.
 - Tool results contain no tool errors; the unconfirmed environment is a model decision error, not an implementation error.
 - Limitation: strengthening the environment paragraph did not resolve this error. Next hypothesis: put argument validation before routing as an explicit decision gate.
 
+### v3: argument validation before routing
+
+- Hypothesis: an explicit decision gate before routing makes argument validation take precedence over a plausible tool choice. This is a prompt-ordering and decision-procedure change; no tool schema or implementation changed.
+- Actual run: [v3 JSON](../runs/v3_B_base_openrouter_20260915T190104637985.json), prompt hash `f12b0d9be3a3`; snapshot [openrouter_v3.md](../runs/prompts/openrouter_v3.md).
+- Total/measured/provider errors/passed: 30/30/0/29. Case/routing/argument accuracy: 0.9667; multiturn: 1.0.
+- Improvement versus v2: H19 now calls `clarify(response_type="choice", options=["production","staging"])` and does not retrieve an unconfirmed environment.
+- Regression versus v2: H04 again emits `lookup_user(employee_id="EMP-1003")` plus unnecessary `inspect_device(asset_id="EMP-1003", check="all")`; the latter returns `asset_not_found`. The correct lookup already returns assigned assets. This is a model routing/argument regression, not an implementation bug.
+- Failure counts: `wrong_tool=1`; observed mismatches: `extra_tool_call=1`. No other PASS-to-FAIL change; all ten multiturn cases remain PASS.
+- Manual finding despite H19 automatic PASS: the clarify call omits required `question`, and the tool returns `question=""`. The evaluator checks choices but misses this usability/schema defect. Therefore H19's routing improved, but its clarification is not fully correct.
+- Net automatic gain over v0: 26/30 to 29/30 (+10 percentage points); v3 is not superior to v1/v2 on accuracy and trades H19 routing improvement for an H04 regression. No claim that all failures are solved or that the final prompt is production-ready.
+- A future iteration should target typed identifier validation and nonempty clarification questions, with fresh evaluation. It is not included or claimed as measured work here.
+
+### Reproducing and interpreting the evidence
+
+The active `system_prompt.md` is the evaluated OpenRouter v3 snapshot. The chosen
+v0/v1/v2/v3 runs have distinct prompt hashes and the same tools hash. Earlier run
+labels with repeated hashes are retained as historical repetitions, not improvements.
+CSV rows are separated by experiment/provider/model; historical Gemini draft rows
+have no valid comparison metric. Provider-error runs must be rerun before use.
+
+From `starter_v0`, replace N with the desired revision (0 through 3):
+
+```powershell
+python run_eval.py --provider openrouter --model openai/gpt-4o-mini --version vN --suite base --eval-cases data/eval_base.json --system-prompt runs/prompts/openrouter_vN.md
+```
+
 ### Historical Gemini investigation (partial run; draft history)
 
 | Case ID | Failure type | Actual calls | What failed | Fix |
@@ -126,10 +152,11 @@ No case IDs, exact test queries or asset names were added to the prompt.
 | v2 | Carry context, sửa mới nhất thắng, hủy yêu cầu cũ, xác nhận gắn với payload cuối | Quy tắc phòng ngừa theo yêu cầu task; M03/M05/M09 chưa đo được nên không khẳng định baseline đã sai các case này. Chưa chạy. |
 | v3 | Bảo toàn nguồn findings, không bịa provenance, ranh giới dữ liệu/tool output | Nhắm H07/H20; bổ sung ràng buộc dữ liệu. Chưa chạy; chưa có kết quả adversarial. |
 
-`artifacts/system_prompt.md` hiện là **bản dự thảo v3 chưa eval**. Snapshot từng bản,
-hash và lệnh chạy lại nằm trong [runs/EVIDENCE.md](../runs/EVIDENCE.md) và
-`version_log.csv`. Metric để trống khi chưa có phép đo hợp lệ; không báo tăng điểm.
-`tools.yaml`, evaluator, provider và bộ case cố định không thay đổi.
+Historical Gemini snapshots remain in `runs/prompts/system_prompt_v0.md` through
+`system_prompt_v3.md`. These are separate, unevaluated drafts after the partial
+Gemini baseline; they are not the active OpenRouter experiment. See the reproduction
+instructions above and experiment-specific CSV rows. Tools, provider implementation,
+evaluator and fixed dataset were not modified for the OpenRouter iterations.
 
 AI hỗ trợ: Codex đọc code/trace, soạn prompt và phần phân tích này. Các kết luận
 quan sát được dẫn về JSON thực tế; các giả thuyết chưa chạy được ghi riêng.
