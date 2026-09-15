@@ -5,7 +5,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from env_loader import load_lab_env
 from providers import make_provider
@@ -84,13 +84,22 @@ def run_model_tool_loop(
     tools: list[dict[str, Any]],
     model: str | None,
     max_tool_rounds: int,
+    on_text_delta: Callable[[str], None] | None = None,
+    on_round_start: Callable[[int], None] | None = None,
 ) -> dict[str, Any]:
     working_messages = list(messages)
     rounds: list[dict[str, Any]] = []
     all_tool_events: list[dict[str, Any]] = []
 
     for round_index in range(1, max_tool_rounds + 1):
-        response = provider.complete(working_messages, tools, model=model, temperature=0.0)
+        if on_round_start:
+            on_round_start(round_index)
+        if on_text_delta and hasattr(provider, "complete_stream"):
+            response = provider.complete_stream(
+                working_messages, tools, model=model, temperature=0.0, on_text_delta=on_text_delta
+            )
+        else:
+            response = provider.complete(working_messages, tools, model=model, temperature=0.0)
         calls = response.tool_calls
         round_record: dict[str, Any] = {
             "round": round_index,

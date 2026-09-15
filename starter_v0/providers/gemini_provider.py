@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, Callable
 
 from providers.base import ModelResponse, ToolCall
 
@@ -143,3 +143,60 @@ class GeminiProvider:
                 deduped_calls.append(call)
 
         return ModelResponse(text="\n".join(part for part in text_parts if part) or None, tool_calls=deduped_calls, raw=resp)
+
+    def complete_stream(
+        self,
+        messages: list[dict[str, str]],
+        tools: list[dict[str, Any]] | None = None,
+        *,
+        model: str | None = None,
+        temperature: float = 0.0,
+        tool_choice: Any | None = None,
+        on_text_delta: Callable[[str], None] | None = None,
+    ) -> ModelResponse:
+        try:
+            from google import genai
+            from google.genai import types
+        except ImportError as exc:
+            raise RuntimeError("Install live provider dependency first: pip install google-genai") from exc
+        api_key = os.getenv(self.api_key_env)
+        if not api_key:
+            raise RuntimeError(f"Missing API key env var: {self.api_key_env}")
+        system_instruction, contents = _to_gemini_contents(messages)
+        declarations = _to_gemini_declarations(tools)
+        config_kwargs: dict[str, Any] = {"temperature": temperature}
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
+        if declarations:
+            config_kwargs["tools"] = [types.Tool(function_declarations=declarations)]
+        stream = genai.Client(api_key=api_key).models.generate_content_stream(
+            model=model or self.default_model,
+            contents=contents,
+            config=types.GenerateContentConfig(**config_kwargs),
+        )
+        text_parts: list[str] = []
+        calls: list[ToolCall] = []
+        chunks: list[Any] = []
+        for chunk in stream:
+            chunks.append(chunk)
+            for candidate in getattr(chunk, "candidates", []) or []:
+                content = getattr(candidate, "content", None)
+                for part in getattr(content, "parts", []) or []:
+                    text = _part_text(part)
+                    if text:
+                        text_parts.append(text)
+                        if on_text_delta:
+                            on_text_delta(text)
+                    function_call = _part_function_call(part)
+                    if function_call:
+                        name = _function_call_name(function_call)
+                        if name:
+                            calls.append(ToolCall(name=name, args=_function_call_args(function_call)))
+        deduped_calls: list[ToolCall] = []
+        seen: set[tuple[str, str]] = set()
+        for call in calls:
+            key = (call.name, json.dumps(call.args, ensure_ascii=False, sort_keys=True))
+            if key not in seen:
+                seen.add(key)
+                deduped_calls.append(call)
+        return ModelResponse(text="".join(text_parts) or None, tool_calls=deduped_calls, raw=chunks)

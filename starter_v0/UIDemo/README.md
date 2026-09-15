@@ -32,7 +32,9 @@ Streamlit sẽ in địa chỉ local, thường là `http://localhost:8501`.
 4. Tiếp tục trả lời khi agent yêu cầu bổ sung hoặc xác nhận.
 5. Chọn **Tải transcript** để lấy evidence JSON.
 
-Transcript cũng được tự động lưu sau mỗi lượt tại `starter_v0/transcripts/`.
+Transcript cũng được tự động lưu sau mỗi lượt tại `starter_v0/runs/` với hậu tố `.transcript.json`.
+
+Câu trả lời được stream theo thời gian thực trên OpenAI/OpenRouter, Anthropic và Gemini; tool call vẫn được gom đầy đủ trước khi thực thi và lưu transcript.
 
 ## Artifact version
 

@@ -63,7 +63,7 @@ starter_v0/UIDemo/
 2. Hiển thị thông báo chờ thông tin từ người dùng và tự động tiếp tục luồng hội thoại ở lượt kế tiếp.
 
 ### Giai đoạn 4: Lưu & Xuất Transcript
-1. Sau mỗi lượt tương tác, gọi hàm `write_transcript()` để ghi log vào thư mục `starter_v0/transcripts/`.
+1. Sau mỗi lượt tương tác, gọi hàm `write_transcript()` để ghi log vào thư mục `starter_v0/runs/` với hậu tố `.transcript.json`.
 2. Thêm nút "Tải xuống Transcript JSON" ngay trên UI để sinh viên dễ dàng thu thập evidence nộp bài.
 
 ---
@@ -91,4 +91,4 @@ streamlit run UIDemo/app.py
 - [ ] UI chạy ổn định, không bị crash khi Provider gặp lỗi.
 - [ ] Mọi tool call đều hiển thị rõ 3 phần: Tên tool, Input JSON, Output/Error.
 - [ ] Nhãn version (`v0`, `v1`,...) được truyền chính xác vào transcript.
-- [ ] File transcript được tạo và lưu thành công trong `starter_v0/transcripts/`.
+- [ ] File transcript được tạo và lưu thành công trong `starter_v0/runs/`.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Callable
 
 from providers.base import ModelResponse, ToolCall
 
@@ -84,5 +84,45 @@ class AnthropicProvider:
             if block_type == "text":
                 text_parts.append(getattr(block, "text", ""))
             elif block_type == "tool_use":
+                calls.append(ToolCall(name=getattr(block, "name"), args=dict(getattr(block, "input", {}) or {})))
+        return ModelResponse(text="\n".join(part for part in text_parts if part) or None, tool_calls=calls, raw=resp)
+
+    def complete_stream(
+        self,
+        messages: list[dict[str, str]],
+        tools: list[dict[str, Any]] | None = None,
+        *,
+        model: str | None = None,
+        temperature: float = 0.0,
+        tool_choice: Any | None = None,
+        on_text_delta: Callable[[str], None] | None = None,
+    ) -> ModelResponse:
+        try:
+            from anthropic import Anthropic
+        except ImportError as exc:
+            raise RuntimeError("Install live provider dependency first: pip install anthropic") from exc
+        api_key = os.getenv(self.api_key_env)
+        if not api_key:
+            raise RuntimeError(f"Missing API key env var: {self.api_key_env}")
+        system, chat_messages = _split_system(messages)
+        kwargs: dict[str, Any] = {"model": model or self.default_model, "messages": chat_messages, "max_tokens": 1024, "temperature": temperature}
+        if system:
+            kwargs["system"] = system
+        anthropic_tools = _to_anthropic_tools(tools)
+        if anthropic_tools:
+            kwargs["tools"] = anthropic_tools
+            if tool_choice == "required":
+                kwargs["tool_choice"] = {"type": "any"}
+        with Anthropic(api_key=api_key).messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                if on_text_delta:
+                    on_text_delta(text)
+            resp = stream.get_final_message()
+        text_parts: list[str] = []
+        calls: list[ToolCall] = []
+        for block in resp.content:
+            if getattr(block, "type", None) == "text":
+                text_parts.append(getattr(block, "text", ""))
+            elif getattr(block, "type", None) == "tool_use":
                 calls.append(ToolCall(name=getattr(block, "name"), args=dict(getattr(block, "input", {}) or {})))
         return ModelResponse(text="\n".join(part for part in text_parts if part) or None, tool_calls=calls, raw=resp)

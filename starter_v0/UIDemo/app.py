@@ -25,7 +25,7 @@ from versioning import artifact_version_dict, build_artifact_version
 
 
 ARTIFACTS_DIR = ROOT / "artifacts"
-TRANSCRIPTS_DIR = ROOT / "transcripts"
+RUNS_DIR = ROOT / "runs"
 BACKGROUND_PATH = Path(__file__).resolve().parent / "assets" / "sapphire-haze.jpg"
 PROVIDER_KEYS = {
     "openrouter": "OPENROUTER_API_KEY",
@@ -126,10 +126,17 @@ body, [class*="css"] { font-family:system-ui,-apple-system,BlinkMacSystemFont,"S
 .tool-description { margin-top:.22rem; color:rgba(34,49,64,.63); font-size:.69rem; font-weight:470; line-height:1.38; }
 .tool-code { display:inline-block; margin-top:.32rem; color:rgba(34,49,64,.48);
   font-family:SFMono-Regular,ui-monospace,"Cascadia Code",Consolas,monospace; font-size:.61rem; line-height:1.2; }
-.history-item { margin:.2rem 0 -.25rem; padding:.15rem .15rem 0; }
-.history-title { color:#223140; font-size:.79rem; font-weight:700; line-height:1.32; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.history-meta { margin-top:.16rem; color:rgba(34,49,64,.52); font-size:.67rem; }
-[data-testid="stSidebar"] .history-open button { min-height:34px!important; font-size:.75rem!important; }
+.history-item { min-width:0; padding:.42rem .05rem .38rem; }
+.history-title { color:#223140; font-size:.79rem; font-weight:720; line-height:1.34; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.history-meta { margin-top:.2rem; color:rgba(34,49,64,.52); font-size:.66rem; }
+.history-rule { height:1px; margin:.18rem 0 .25rem; background:rgba(45,58,72,.10); }
+[data-testid="stSidebar"] [class*="st-key-restore_session_"] button {
+  width:34px!important; min-width:34px!important; height:34px!important; min-height:34px!important;
+  margin-top:.36rem!important; padding:0!important; border-radius:50%!important;
+  color:#176fca!important; background:rgba(255,255,255,.48)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.72)!important;
+}
+[data-testid="stSidebar"] [class*="st-key-restore_session_"] button:hover { background:rgba(255,255,255,.76)!important; transform:translateY(-1px); }
 .sidebar-rule { height:1px; margin:1.35rem 0 0; background:rgba(45,58,72,.14); }
 .block-container { max-width:980px; padding-top:1.25rem; padding-bottom:7.5rem; }
 .glass-nav {
@@ -179,6 +186,7 @@ body, [class*="css"] { font-family:system-ui,-apple-system,BlinkMacSystemFont,"S
 .assistant-bubble h1, .assistant-bubble h2, .assistant-bubble h3 { color:#15222e; font-size:1.08rem; line-height:1.35; margin:.9rem 0 .45rem; }
 .assistant-bubble code { color:#17324d; background:rgba(26,74,115,.08); padding:.12rem .32rem; border-radius:6px; }
 .assistant-bubble pre { overflow:auto; padding:.8rem; border-radius:12px; background:rgba(20,39,57,.08); }
+.stream-caret { display:inline-block; width:7px; height:1.05em; margin-left:3px; vertical-align:-.12em; border-radius:4px; background:#007aff; animation:stream-blink .85s ease-in-out infinite; }
 .turn-error { border-left:3px solid var(--danger); background:#fff; border-radius:16px; padding:.8rem 1rem; color:#a72019; }
 .trace-title { display:flex; align-items:center; gap:.5rem; color:var(--secondary); font-weight:600; font-size:.82rem; margin:.65rem 0 .4rem; }
 .trace-card { background:#fff; border:1px solid var(--divider); border-radius:22px; padding:.2rem .85rem; margin:.45rem 0; }
@@ -296,6 +304,7 @@ li[role="option"][aria-selected="true"]::after {
 .stButton button p, .stDownloadButton button p { white-space:nowrap!important; }
 code, pre { font-family:SFMono-Regular,ui-monospace,"Cascadia Code",Consolas,monospace!important; }
 @keyframes message-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes stream-blink { 0%,100% { opacity:.2; } 50% { opacity:1; } }
 @media (max-width:700px) {
   .block-container { padding-left:.75rem; padding-right:.75rem; padding-top:.5rem; }
   .glass-nav { top:.35rem; border-radius:22px; }
@@ -361,8 +370,8 @@ def load_saved_sessions(limit: int = 20) -> None:
     if "chat_sessions" in st.session_state:
         return
     sessions: list[dict[str, Any]] = []
-    if TRANSCRIPTS_DIR.exists():
-        paths = sorted(TRANSCRIPTS_DIR.glob("*.transcript.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if RUNS_DIR.exists():
+        paths = sorted(RUNS_DIR.glob("*.transcript.json"), key=lambda path: path.stat().st_mtime, reverse=True)
         for path in paths[:limit]:
             try:
                 transcript = json.loads(path.read_text(encoding="utf-8"))
@@ -385,7 +394,7 @@ def new_session(provider_name: str, version: str, model: str | None, history_win
     transcript_id = "_".join([safe_slug(version), safe_slug(provider_name), timestamp])
     st.session_state.history = []
     st.session_state.turns = []
-    st.session_state.transcript_path = TRANSCRIPTS_DIR / f"{transcript_id}.transcript.json"
+    st.session_state.transcript_path = RUNS_DIR / f"{transcript_id}.transcript.json"
     st.session_state.transcript = {
         "transcript_id": transcript_id,
         **artifact_version_dict(artifact),
@@ -513,14 +522,19 @@ with st.sidebar:
             first_prompt = str(turns[0].get("user", "Phiên trò chuyện")) if turns else "Phiên trò chuyện"
             title = first_prompt if len(first_prompt) <= 38 else f"{first_prompt[:38].rstrip()}…"
             updated_at = str(item["transcript"].get("updated_at") or item["transcript"].get("created_at") or "")
-            st.markdown(
-                f'<div class="history-item"><div class="history-title">{html.escape(title)}</div>'
-                f'<div class="history-meta">{len(turns)} lượt · {html.escape(updated_at[:16].replace("T", " "))}</div></div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("Mở lại", key=f"restore_session_{index}", use_container_width=True):
-                restore_session(item)
-                st.rerun()
+            info_col, open_col = st.columns([5, 1], vertical_alignment="center")
+            with info_col:
+                st.markdown(
+                    f'<div class="history-item"><div class="history-title" title="{html.escape(first_prompt)}">{html.escape(title)}</div>'
+                    f'<div class="history-meta">{len(turns)} lượt · {html.escape(updated_at[:16].replace("T", " "))}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            with open_col:
+                if st.button("↗", key=f"restore_session_{index}", help="Mở lại phiên này"):
+                    restore_session(item)
+                    st.rerun()
+            if index < len(archived_sessions) - 1:
+                st.markdown('<div class="history-rule"></div>', unsafe_allow_html=True)
 
 st.markdown('<div class="action-row">', unsafe_allow_html=True)
 spacer_col, action_col, download_col = st.columns([4.6, 1.35, 1.45])
@@ -588,14 +602,39 @@ if prompt:
         "rounds": [],
         "tool_events": [],
     }
+    safe_prompt = html.escape(str(prompt))
+    st.markdown(
+        f'<div class="message-wrap user-wrap"><div class="message-label">Bạn</div>'
+        f'<div class="bubble user">{safe_prompt}</div></div>',
+        unsafe_allow_html=True,
+    )
+    stream_placeholder = st.empty()
+    streamed_parts: list[str] = []
+
+    def render_stream_delta(delta: str) -> None:
+        streamed_parts.append(delta)
+        partial_html = MARKDOWN.render("".join(streamed_parts))
+        stream_placeholder.markdown(
+            '<div class="assistant-wrap"><div class="assistant-label">Northstar Assistant</div>'
+            f'<div class="assistant-bubble">{partial_html}<span class="stream-caret"></span></div></div>',
+            unsafe_allow_html=True,
+        )
+
     with st.status("Agent đang phân tích và gọi công cụ…", expanded=True) as status:
         try:
+            def begin_round(round_number: int) -> None:
+                streamed_parts.clear()
+                stream_placeholder.empty()
+                status.update(label=f"Đang xử lý vòng {round_number}…", state="running", expanded=False)
+
             result = run_model_tool_loop(
                 provider=selected_provider,
                 messages=messages,
                 tools=openai_tools,
                 model=model,
                 max_tool_rounds=max_rounds,
+                on_text_delta=render_stream_delta,
+                on_round_start=begin_round,
             )
             turn.update(result)
             assistant_text = str(result.get("assistant_text") or "")
@@ -607,6 +646,7 @@ if prompt:
         except Exception as exc:
             turn.update({"status": "provider_error", "error": f"{type(exc).__name__}: {exc}"})
             status.update(label="Provider trả về lỗi", state="error", expanded=True)
+    stream_placeholder.empty()
     turn["ended_at"] = now_iso()
     st.session_state.turns.append(turn)
     st.session_state.transcript["turns"] = st.session_state.turns
