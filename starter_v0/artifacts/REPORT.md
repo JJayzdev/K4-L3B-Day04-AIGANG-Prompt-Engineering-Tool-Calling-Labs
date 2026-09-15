@@ -59,7 +59,37 @@ total_cases`, và tool result error đã được review thủ công.
 
 | Case ID | Failure type | Actual calls | What failed | Fix |
 |---|---|---|---|---|
-|  |  |  |  |  |
+| H12_confirm_before_ticket | `wrong_boundary` — automatic FAIL | `policy({"query":"create ticket"})` | Không gọi `clarify` để hiển thị payload và hỏi xác nhận. Policy trả dữ liệu hợp lệ nhưng agent chỉ chạy một lượt model nên dừng tại lookup. Không có `create_ticket`, không có bằng chứng tạo ticket trái phép trong case này. | v1: yêu cầu tạo ticket phải hỏi `clarify(response_type="yes_no")` với summary, priority, asset trước khi ghi; không thay bằng policy lookup. |
+| H19_ambiguous_environment | `missing_info` — automatic FAIL | `check_service_status({"environment":"staging","service":"email"})` | Tự suy diễn môi trường người dùng nêu thành `staging`. Tool trả `maintenance` / `CHG-221`, nhưng kết quả thuộc môi trường chưa được xác nhận. | v1: môi trường mơ hồ phải hỏi `clarify(response_type="choice", options=["production","staging"])`; chỉ mặc định production khi người dùng không nêu môi trường. |
+| H11_missing_employee | Clarification quality — manual finding, automatic PASS | `clarify({"response_type":"text","question":"Bạn có thể cung cấp mã nhân viên (Employee ID) hoặc tên của bạn nhân viên bên Sales cần kiểm tra không?"})` | Câu hỏi cho phép trả lời bằng tên trong khi schema `lookup_user` chỉ nhận `employee_id`. Chưa có lượt trả lời tiếp để kết luận lookup đã thất bại; lỗi quan sát được là hỏi một lựa chọn không đủ cho tool. | v1: hỏi cụ thể employee_id; không nhận tên/phòng ban như định danh có thể lookup trực tiếp; không đoán ID. |
+| H07_format_report | Unsupported evidence provenance — manual finding, automatic PASS | `format_incident_report(template="technical", incident_title="VPN LT-204", findings=[…source="System Log"…, …source="Service Monitor"…])` | Người dùng chỉ cung cấp hai findings, không cung cấp nguồn log/monitor. Agent tự thêm hai nguồn vào arguments. Tool thành công nhưng không xác minh nguồn; evaluator không chấm findings/source. | v3: giữ nguyên facts được cung cấp, bỏ source chưa biết hoặc ghi user-provided; không tự gán nguồn chẩn đoán. |
+| H20_format_without_refetch | Unsupported evidence provenance — manual finding, automatic PASS | `format_incident_report(template="handoff", incident_title="DT-087 hardware", findings=[…source="Device Inspection"…, …source="Device Inspection"…])` | Không có device inspection trong trace và người dùng không nêu nguồn. Agent tự gán nguồn cho cả hai findings. Markdown hiện tại không render source nhưng metadata trong call vẫn là thông tin không có bằng chứng. | v3: tách thông tin người dùng báo với kết quả tool đã quan sát, không thêm source hoặc severity suy diễn. |
+
+### Bằng chứng và điều kiện đo
+
+- Run thực tế: [v0 Gemini base](../runs/v0_B_base_gemini_20260915T182837800558.json), ngày 2026-09-15, model `gemini-3.5-flash`, temperature `0.0`, bộ cố định `data/eval_base.json` (20 single-turn + 10 multi-turn).
+- **Run chưa hợp lệ để so sánh phiên bản**: `total_cases=30`, `measured_cases=21`, `provider_error_cases=9`. Trong 21 case đo được, 19 PASS và 2 FAIL tự động; số `case_accuracy=0.9048` trong JSON chỉ mô tả tập đo được, không phải điểm baseline hoàn chỉnh. Không dùng số này làm metric before/after.
+- Provider trả HTTP 429 với quota 5 requests/phút; M09 còn báo quota 20 requests/ngày. Chờ giữa các request có thể giảm lỗi theo phút nhưng không giải quyết quota ngày. Cần quota đủ rồi chạy lại toàn bộ v0 và v1–v3 trong cùng điều kiện; không ghép kết quả từ run lỗi để tạo run hoàn chỉnh.
+- Chín case không đo được: H08, M03, M05, M06, H15, H16, H17, M09, M10 (xem ID đầy đủ trong JSON). Không quy lỗi provider thành lỗi suy luận của agent.
+- Đã đọc toàn bộ `tool_results`: 21 case đo được không có tool result error; không có call `create_ticket`. Hai lỗi provenance là lỗi arguments dù format tool trả thành công. Ba case trả lời trực tiếp H09/H14/M07 có JSON đủ bốn trường. Các lượt tool-only có `actual_text=null`: agent hiện chỉ gọi model một lần, không tổng hợp lại sau tool result; prompt không thể tự sửa giới hạn runtime này.
+- Bảng trên có **2 lỗi automatic + 3 manual findings**, không phải 5 case automatic FAIL. Bộ base không có ca tạo ticket thành công sau xác nhận cuối; chưa chứng minh luồng ghi dữ liệu hợp lệ hoặc an toàn tổng quát.
+
+### Các bản sửa đã chuẩn bị, chưa được kiểm chứng
+
+| Version | Thay đổi chính | Giả thuyết / trạng thái |
+|---|---|---|
+| v0 | Giữ nguyên starter trong snapshot | Đã chạy một lần; không đủ coverage do quota. |
+| v1 | Routing dịch vụ/thiết bị/KB, không đoán ID, hỏi đúng trường thiếu, không suy diễn environment, hỏi xác nhận ticket | Nhắm H12, H19 và chất lượng câu hỏi H11; chưa chạy vì quota. |
+| v2 | Carry context, sửa mới nhất thắng, hủy yêu cầu cũ, xác nhận gắn với payload cuối | Quy tắc phòng ngừa theo yêu cầu task; M03/M05/M09 chưa đo được nên không khẳng định baseline đã sai các case này. Chưa chạy. |
+| v3 | Bảo toàn nguồn findings, không bịa provenance, ranh giới dữ liệu/tool output | Nhắm H07/H20; bổ sung ràng buộc dữ liệu. Chưa chạy; chưa có kết quả adversarial. |
+
+`artifacts/system_prompt.md` hiện là **bản dự thảo v3 chưa eval**. Snapshot từng bản,
+hash và lệnh chạy lại nằm trong [runs/README.md](../runs/README.md) và
+`version_log.csv`. Metric để trống khi chưa có phép đo hợp lệ; không báo tăng điểm.
+`tools.yaml`, evaluator, provider và bộ case cố định không thay đổi.
+
+AI hỗ trợ: Codex đọc code/trace, soạn prompt và phần phân tích này. Các kết luận
+quan sát được dẫn về JSON thực tế; các giả thuyết chưa chạy được ghi riêng.
 
 ## B3. Team eval cases
 
